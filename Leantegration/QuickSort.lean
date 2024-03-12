@@ -137,14 +137,49 @@ theorem quickSort_sorted (l : List α) : Sorted (quickSort l) := by
         apply Nat.succ_le_succ
         apply List.length_filter_le
       let ihb := quickSort_sorted (belowPivot pivot l)
-      let iha := mem_iff_mem_quickSort (abovePivot pivot l)
+      let iha := quickSort_sorted (abovePivot pivot l)
       apply append_sorted pivot
       · intro x
         rw [← mem_iff_mem_quickSort]
-
-        sorry
+        intro h
+        simp [belowPivot] at h
+        let lem := List.of_mem_filter h
+        simp at lem
+        assumption
       · simp
-        sorry
+        intro x
+        rw [← mem_iff_mem_quickSort]
+        intro h
+        simp [abovePivot] at h
+        let lem := List.of_mem_filter h
+        simp at lem
+        apply le_of_lt
+        assumption
       · assumption
-      · sorry
+      · apply append_sorted pivot [pivot] (quickSort (abovePivot pivot l))
+        · simp
+        · intro x h
+          rw [← mem_iff_mem_quickSort] at h
+          let lem := List.of_mem_filter h
+          simp at lem
+          apply le_of_lt
+          assumption
+        · apply Sorted.singleton
+        · assumption
 termination_by l.length
+
+def quickSortConc : List α → List α
+  | [] => []
+  | pivot :: l => do
+    have : (belowPivot pivot l).length < (pivot :: l).length := by
+      simp [List.length_cons]
+      apply Nat.succ_le_succ
+      apply List.length_filter_le
+    have : (abovePivot pivot l).length < (pivot :: l).length := by
+      simp [List.length_cons]
+      apply Nat.succ_le_succ
+      apply List.length_filter_le
+    let t₁ := Task.spawn fun _ => quickSortConc (belowPivot pivot l)
+    let t₂ := Task.spawn fun _ => quickSortConc (abovePivot pivot l)
+    (t₁.get) ++ pivot :: (t₂.get)
+termination_by l => l.length
