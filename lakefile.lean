@@ -15,3 +15,6 @@ require mathlib from git
 @[default_target]
 lean_lib «Leantegration» where
   -- add any library configuration options here
+
+@[default_target]
+lean_exe quicksort where
