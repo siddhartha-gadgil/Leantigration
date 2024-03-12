@@ -34,11 +34,11 @@ theorem mem_iff_below_or_above_pivot (pivot : α) (l : List α)(x : α) :
     apply Iff.intro
     · intro h
       by_cases h' : x ≤ pivot
-      · apply Or.inl
+      · left
         apply List.mem_filter_of_mem h
         simp
         assumption
-      · apply Or.inr
+      · right
         apply List.mem_filter_of_mem h
         simp
         apply lt_of_not_ge
@@ -46,7 +46,8 @@ theorem mem_iff_below_or_above_pivot (pivot : α) (l : List α)(x : α) :
     · intro h
       cases h
       case mpr.inl h' =>
-        exact List.mem_of_mem_filter h'
+        apply List.mem_of_mem_filter
+        assumption
       case mpr.inr h' =>
         exact List.mem_of_mem_filter h'
 
@@ -56,9 +57,8 @@ theorem mem_iff_mem_quickSort (l: List α)(x : α) :
     | [] =>
       simp [quickSort_nil]
     | pivot :: l =>
-      rw [quickSort_cons]
-      simp
-      rw [mem_iff_below_or_above_pivot pivot ]
+      simp [quickSort_cons]
+      rw [mem_iff_below_or_above_pivot pivot]
       have : (belowPivot pivot l).length < (pivot :: l).length := by
         simp [List.length_cons]
         apply Nat.succ_le_succ
@@ -84,35 +84,30 @@ theorem append_sorted (bound: α)(l₁ l₂ : List α) :
   intro h₁ h₂ s₁
   induction s₁
   case nil =>
-    intro s₂
-    exact s₂
+    simp
   case singleton x =>
     simp at h₁
     intro s₂
-    induction s₂
+    cases s₂
     case nil =>
       apply Sorted.singleton
     case singleton y =>
       apply Sorted.step x y
       · simp at h₂
-        trans bound
-        · assumption
-        · assumption
+        trans bound <;> assumption
       · apply Sorted.singleton
-    case step y z l hxy s _ =>
+    case step y z l hyz s =>
       simp
       apply Sorted.step x y
       · trans bound
         · assumption
         · simp [List.mem_cons] at h₂
           exact h₂.left
-      · exact Sorted.step y z l hxy s
+      · exact Sorted.step y z l hyz s
   case step x y l hxy _ ih =>
     intro s₂
     apply Sorted.step x y (l ++ l₂) hxy
     rw [← List.cons_append]
-    have : (y :: l).length + l₂.length < (x :: y :: l).length + l₂.length := by
-      simp
     apply ih
     · simp [List.mem_cons]
       simp [List.mem_cons] at h₁
