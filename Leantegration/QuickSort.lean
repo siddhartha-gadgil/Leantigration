@@ -1,12 +1,12 @@
-import Mathlib
+import Mathlib.Data.List.Basic
 
 variable {α : Type}[LinearOrder α]
 
 def belowPivot (pivot : α) (l : List α) : List α :=
-  l.filter (fun x => x ≤  pivot)
+  l.filterTR (fun x => x ≤  pivot)
 
 def abovePivot (pivot : α) (l : List α) : List α :=
-  l.filter (fun x => x > pivot)
+  l.filterTR (fun x => x > pivot)
 
 def quickSort : List α → List α
   | [] => []
@@ -14,10 +14,14 @@ def quickSort : List α → List α
     have : (belowPivot pivot l).length < (pivot :: l).length := by
       simp [List.length_cons]
       apply Nat.succ_le_succ
+      simp [belowPivot]
+      rw [← List.filter_eq_filterTR]
       apply List.length_filter_le
     have : (abovePivot pivot l).length < (pivot :: l).length := by
       simp [List.length_cons]
       apply Nat.succ_le_succ
+      simp [abovePivot]
+      rw [← List.filter_eq_filterTR]
       apply List.length_filter_le
     (quickSort (belowPivot pivot l)) ++ pivot :: (quickSort (abovePivot pivot l))
 termination_by l => l.length
@@ -35,10 +39,14 @@ theorem mem_iff_below_or_above_pivot (pivot : α) (l : List α)(x : α) :
     · intro h
       by_cases h' : x ≤ pivot
       · apply Or.inl
+        simp [belowPivot]
+        rw [← List.filter_eq_filterTR]
         apply List.mem_filter_of_mem h
         simp
         assumption
       · apply Or.inr
+        simp [abovePivot]
+        rw [← List.filter_eq_filterTR]
         apply List.mem_filter_of_mem h
         simp
         apply lt_of_not_ge
@@ -46,8 +54,12 @@ theorem mem_iff_below_or_above_pivot (pivot : α) (l : List α)(x : α) :
     · intro h
       cases h
       case mpr.inl h' =>
+        simp [belowPivot] at h'
+        rw [← List.filter_eq_filterTR] at h'
         exact List.mem_of_mem_filter h'
       case mpr.inr h' =>
+        simp [abovePivot] at h'
+        rw [← List.filter_eq_filterTR] at h'
         exact List.mem_of_mem_filter h'
 
 theorem mem_iff_mem_quickSort (l: List α)(x : α) :
@@ -62,10 +74,14 @@ theorem mem_iff_mem_quickSort (l: List α)(x : α) :
       have : (belowPivot pivot l).length < (pivot :: l).length := by
         simp [List.length_cons]
         apply Nat.succ_le_succ
+        simp [belowPivot]
+        rw [← List.filter_eq_filterTR]
         apply List.length_filter_le
       have : (abovePivot pivot l).length < (pivot :: l).length := by
         simp [List.length_cons]
         apply Nat.succ_le_succ
+        simp [abovePivot]
+        rw [← List.filter_eq_filterTR]
         apply List.length_filter_le
       let ihb := mem_iff_mem_quickSort (belowPivot pivot l)
       let iha := mem_iff_mem_quickSort (abovePivot pivot l)
@@ -131,10 +147,14 @@ theorem quickSort_sorted (l : List α) : Sorted (quickSort l) := by
       have : (belowPivot pivot l).length < (pivot :: l).length := by
         simp [List.length_cons]
         apply Nat.succ_le_succ
+        simp [belowPivot]
+        rw [← List.filter_eq_filterTR]
         apply List.length_filter_le
       have : (abovePivot pivot l).length < (pivot :: l).length := by
         simp [List.length_cons]
         apply Nat.succ_le_succ
+        simp [abovePivot]
+        rw [← List.filter_eq_filterTR]
         apply List.length_filter_le
       let ihb := quickSort_sorted (belowPivot pivot l)
       let iha := quickSort_sorted (abovePivot pivot l)
@@ -143,6 +163,7 @@ theorem quickSort_sorted (l : List α) : Sorted (quickSort l) := by
         rw [← mem_iff_mem_quickSort]
         intro h
         simp [belowPivot] at h
+        rw [← List.filter_eq_filterTR] at h
         let lem := List.of_mem_filter h
         simp at lem
         assumption
@@ -151,6 +172,7 @@ theorem quickSort_sorted (l : List α) : Sorted (quickSort l) := by
         rw [← mem_iff_mem_quickSort]
         intro h
         simp [abovePivot] at h
+        rw [← List.filter_eq_filterTR] at h
         let lem := List.of_mem_filter h
         simp at lem
         apply le_of_lt
@@ -160,6 +182,8 @@ theorem quickSort_sorted (l : List α) : Sorted (quickSort l) := by
         · simp
         · intro x h
           rw [← mem_iff_mem_quickSort] at h
+          simp [abovePivot] at h
+          rw [← List.filter_eq_filterTR] at h
           let lem := List.of_mem_filter h
           simp at lem
           apply le_of_lt
@@ -168,18 +192,31 @@ theorem quickSort_sorted (l : List α) : Sorted (quickSort l) := by
         · assumption
 termination_by l.length
 
-def quickSortConc : List α → List α
-  | [] => []
+def quickSortConc (depth: Nat) : List α → IO (List α)
+  | [] => pure []
   | pivot :: l => do
     have : (belowPivot pivot l).length < (pivot :: l).length := by
       simp [List.length_cons]
       apply Nat.succ_le_succ
+      simp [belowPivot]
+      rw [← List.filter_eq_filterTR]
       apply List.length_filter_le
     have : (abovePivot pivot l).length < (pivot :: l).length := by
       simp [List.length_cons]
       apply Nat.succ_le_succ
+      simp [abovePivot]
+      rw [← List.filter_eq_filterTR]
       apply List.length_filter_le
-    let t₁ := Task.spawn fun _ => quickSortConc (belowPivot pivot l)
-    let t₂ := Task.spawn fun _ => quickSortConc (abovePivot pivot l)
-    (t₁.get) ++ pivot :: (t₂.get)
+    match depth with
+    | 0 =>
+      return (quickSort (belowPivot pivot l)) ++ pivot :: (quickSort (abovePivot pivot l))
+    | d + 1 =>
+    let t₁ :=
+      Task.spawn (fun _ => quickSortConc d (belowPivot pivot l))
+        (prio := Task.Priority.default)
+    let t₂ := Task.spawn (fun _ => quickSortConc d (abovePivot pivot l))
+      (prio := Task.Priority.default)
+    return (← t₁.get) ++ pivot :: (← t₂.get)
 termination_by l => l.length
+
+#check IO.rand
