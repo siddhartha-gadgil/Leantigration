@@ -140,7 +140,8 @@ theorem quickSort_sorted (l : List α) : Sorted (quickSort l) := by
       let iha := mem_iff_mem_quickSort (abovePivot pivot l)
       apply append_sorted pivot
       · sorry
-      · sorry
-      · sorry
+      · simp
+        sorry
+      · assumption
       · sorry
 termination_by l.length
