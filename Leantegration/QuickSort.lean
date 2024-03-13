@@ -1,4 +1,5 @@
 import Mathlib.Data.List.Basic
+import Mathlib.Tactic
 
 variable {α : Type}[LinearOrder α]
 
@@ -161,9 +162,9 @@ theorem quickSort_sorted (l : List α) : Sorted (quickSort l) := by
         · assumption
 termination_by l.length
 
-def quickSortConc (depth: Nat) : List α → IO (List α)
-  | [] => pure []
-  | pivot :: l => do
+def quickSortTask (depth: Nat) : List α → Task (List α)
+  | [] => Task.pure []
+  | pivot :: l =>
     have : (belowPivot pivot l).length < (pivot :: l).length := by
       simp [List.length_cons]
       apply Nat.succ_le_succ
@@ -174,12 +175,51 @@ def quickSortConc (depth: Nat) : List α → IO (List α)
       apply List.length_filter_le
     match depth with
     | 0 =>
-      return (quickSort (belowPivot pivot l)) ++ pivot :: (quickSort (abovePivot pivot l))
+      Task.spawn fun _ => (quickSort (belowPivot pivot l)) ++ pivot :: (quickSort (abovePivot pivot l))
     | d + 1 =>
     let t₁ :=
-      Task.spawn (fun _ => quickSortConc d (belowPivot pivot l))
-        (prio := Task.Priority.default)
-    let t₂ := Task.spawn (fun _ => quickSortConc d (abovePivot pivot l))
-      (prio := Task.Priority.default)
-    return (← t₁.get) ++ pivot :: (← t₂.get)
+      quickSortTask d (belowPivot pivot l)
+    let t₂ := quickSortTask d (abovePivot pivot l)
+    t₁.bind fun l₁ =>
+      t₂.map fun l₂ =>
+        l₁ ++ pivot :: l₂
 termination_by l => l.length
+
+def quickSortPar (depth: Nat) (l : List α) : List α :=
+  (quickSortTask depth l).get
+
+example (n: Nat): (n + 1)/2 < n + 1 := by
+  exact Nat.div_lt_self' n 0
+
+#check Array.eraseIdx'
+#check Array.size_filter_le
+
+
+variable [Inhabited α]
+partial def quickSortArr (arr : Array α) : Array α :=
+  if arr.size ≤ 1 then arr else
+  let pivot := arr.get! 0
+  let arr := arr.eraseIdx 0
+  let (l, r) := arr.partition (fun x => x ≤ pivot)
+  let l := quickSortArr l
+  let r := quickSortArr r
+  l.push pivot ++ r
+
+partial def quickSortArrTask (depth: Nat) (arr : Array α) : Task (Array α) :=
+  if arr.size ≤ 1 then Task.pure arr else
+  match depth with
+  | 0 =>
+    Task.spawn fun _ =>
+      quickSortArr arr
+  | d + 1 =>
+  let pivot := arr.get! 0
+  let arr := arr.eraseIdx 0
+  let (l, r) := arr.partition (fun x => x ≤ pivot)
+  let l := quickSortArrTask d l
+  let r := quickSortArrTask d r
+  l.bind fun l =>
+    r.map fun r =>
+      l.push pivot ++ r
+
+def quickSortArrPar (depth: Nat) (arr : Array α) : Array α :=
+  (quickSortArrTask depth arr).get
