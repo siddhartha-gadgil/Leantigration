@@ -60,15 +60,13 @@ theorem mem_iff_mem_quickSort (l: List α)(x : α) :
     | pivot :: l =>
       simp [quickSort_cons]
       rw [mem_iff_below_or_above_pivot pivot]
-      have : (belowPivot pivot l).length < (pivot :: l).length := by
-        simp [List.length_cons]
-        apply Nat.succ_le_succ
-        apply List.length_filter_le
-      have : (abovePivot pivot l).length < (pivot :: l).length := by
-        simp [List.length_cons]
+      have : (belowPivot pivot l).length < l.length + 1 := by
         apply Nat.succ_le_succ
         apply List.length_filter_le
       let ihb := mem_iff_mem_quickSort (belowPivot pivot l)
+      have : (abovePivot pivot l).length < l.length + 1 := by
+        apply Nat.succ_le_succ
+        apply List.length_filter_le
       let iha := mem_iff_mem_quickSort (abovePivot pivot l)
       rw [← ihb, ← iha]
       aesop
@@ -191,7 +189,7 @@ def quickSortPar (depth: Nat) (l : List α) : List α :=
 example (n: Nat): (n + 1)/2 < n + 1 := by
   exact Nat.div_lt_self' n 0
 
-#check Array.eraseIdx'
+#check Array.eraseIdx
 #check Array.size_filter_le
 
 
